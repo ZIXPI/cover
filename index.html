@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KYAU Cover Page Generator</title>
-  <!-- Load Typst Web Compiler from CDN -->
-  <script type="module">
-    import { createTypstCompiler } from 'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-web-compiler/dist/esm/index.js';
-    window.createTypstCompiler = createTypstCompiler;
-  </script>
+
+  <!-- Typst all-in-one bundle: exposes the global $typst and loads the WASM compiler + renderer itself -->
+  <script type="module" id="typst"
+    src="https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-all-in-one.ts@0.5.4/dist/esm/main.bundle.js"></script>
+
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -33,9 +33,7 @@
       border-bottom: 2px solid #eee;
       padding-bottom: 12px;
     }
-    .form-group {
-      margin-bottom: 14px;
-    }
+    .form-group { margin-bottom: 14px; }
     label {
       display: block;
       font-weight: 600;
@@ -70,13 +68,8 @@
       cursor: pointer;
       margin-top: 15px;
     }
-    button:hover {
-      background: #6e2631;
-    }
-    button:disabled {
-      background: #aaa;
-      cursor: not-allowed;
-    }
+    button:hover { background: #6e2631; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
     #status {
       text-align: center;
       margin-top: 12px;
@@ -149,74 +142,105 @@
     <input type="text" id="pdfName" value="Cover_Page.pdf">
   </div>
 
-  <button id="generateBtn">Generate & Download PDF</button>
+  <button id="generateBtn" disabled>Generate &amp; Download PDF</button>
   <div id="status">Initializing compiler...</div>
 </div>
 
 <script>
-  let compiler = null;
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('generateBtn');
+  let typst = null;
+
+  // The bundle is loaded as an ES module (deferred), so wait until it defines window.$typst
+  function waitForTypst(timeoutMs = 20000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const timer = setInterval(() => {
+        if (window.$typst) {
+          clearInterval(timer);
+          resolve(window.$typst);
+        } else if (Date.now() - start > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Typst bundle did not load (check your internet connection).'));
+        }
+      }, 100);
+    });
+  }
 
   async function initCompiler() {
     try {
-      const statusEl = document.getElementById('status');
       statusEl.innerText = "Loading Typst engine...";
-      compiler = await window.createTypstCompiler();
-      await compiler.init();
+      typst = await waitForTypst();
+
+      // Warm-up compile: downloads the WASM compiler and fonts once, so the first real click is fast
+      statusEl.innerText = "Warming up compiler (first load can take a few seconds)...";
+      await typst.pdf({ mainContent: '#set page(width: 2cm, height: 2cm)\nok' });
+
       statusEl.innerText = "Ready to generate!";
+      btn.disabled = false;
     } catch (err) {
       console.error(err);
-      document.getElementById('status').innerText = "Failed to load compiler engine.";
+      statusEl.innerText = "Failed to load compiler engine: " + err.message;
     }
   }
 
   window.addEventListener('DOMContentLoaded', initCompiler);
 
-  document.getElementById('generateBtn').addEventListener('click', async () => {
-    if (!compiler) {
-      alert("Compiler is still loading, please wait a moment.");
-      return;
-    }
+  // Escape characters that have special meaning in Typst markup so user input stays literal text
+  function esc(str) {
+    return String(str).replace(/([\\#$*_`@<>\[\]~\/"'=-])/g, '\\$1');
+  }
 
-    const btn = document.getElementById('generateBtn');
-    const statusEl = document.getElementById('status');
+  btn.addEventListener('click', async () => {
+    if (!typst) return;
+
     btn.disabled = true;
     statusEl.innerText = "Fetching logo and compiling PDF...";
 
     try {
-      // 1. Fetch image.png and add it to the compiler virtual workspace
-      const imgRes = await fetch('image.png');
-      const imgBlob = await imgRes.blob();
-      const imgBuffer = new Uint8Array(await imgBlob.arrayBuffer());
-      compiler.addSource('/image.png', imgBuffer);
+      // 1. Load logo into Typst's virtual file system (needs a local web server, not file://)
+      let hasLogo = false;
+      try {
+        const imgRes = await fetch('image.png');
+        if (!imgRes.ok) throw new Error('image.png not found');
+        const imgBuffer = new Uint8Array(await imgRes.arrayBuffer());
+        await typst.mapShadow('/image.png', imgBuffer);
+        hasLogo = true;
+      } catch (e) {
+        console.warn('Logo skipped:', e);
+      }
 
-      // 2. Read form values
-      const assignmentNo = document.getElementById('assignmentNo').value;
-      const courseCode = document.getElementById('courseCode').value;
-      const courseTitle = document.getElementById('courseTitle').value;
-      const labelTitle = document.getElementById('labelTitle').value;
-      const topicName = document.getElementById('topicName').value;
-      const submissionDate = document.getElementById('submissionDate').value;
-      const studentName = document.getElementById('studentName').value;
-      const studentId = document.getElementById('studentId').value;
-      const teacherName = document.getElementById('teacherName').value;
-      const teacherDesig = document.getElementById('teacherDesig').value;
-      let pdfName = document.getElementById('pdfName').value;
-      if (!pdfName.endsWith('.pdf')) pdfName += '.pdf';
+      // 2. Read form values (escaped)
+      const v = id => esc(document.getElementById(id).value);
+      const assignmentNo   = v('assignmentNo');
+      const courseCode     = v('courseCode');
+      const courseTitle    = v('courseTitle');
+      const labelTitle     = v('labelTitle');
+      const topicName      = v('topicName');
+      const submissionDate = v('submissionDate');
+      const studentName    = v('studentName');
+      const studentId      = v('studentId');
+      const teacherName    = v('teacherName');
+      const teacherDesig   = v('teacherDesig');
+      let pdfName = document.getElementById('pdfName').value.trim() || 'Cover_Page.pdf';
+      if (!pdfName.toLowerCase().endsWith('.pdf')) pdfName += '.pdf';
 
-      // 3. Construct Typst source content
+      // 3. Typst source
+      const logo = hasLogo
+        ? `#align(center)[#image("image.png", width: 4cm)]`
+        : '';
+
       const typstContent = `
-#set page(paper:"a4")
-#align(center)[
-  #image("image.png", width: 4cm)
-]
+#set page(paper: "a4")
+${logo}
 
 #align(center)[
-  #set text(font: "Maiandra GD")
+  #set text(font: ("Maiandra GD", "Libertinus Serif"))
   == #text(size: 30pt, weight: "bold")[Khwaja Yunus Ali University]
   #v(0.2cm)
   #line(length: 100%)
 
-= ${assignmentNo}
+  = ${assignmentNo}
 ]
 #v(2cm)
 
@@ -237,7 +261,7 @@
 #v(4.5cm)
 #align(center)[
   #line(length: 50%)
-*Instructor signature and date *
+  *Instructor signature and date*
 ]
 
 #let header-brown = rgb("A45")
@@ -276,15 +300,10 @@
 )
 `;
 
-      compiler.addSource('/main.typ', typstContent);
+      // 4. Compile straight to PDF bytes
+      const pdfBytes = await typst.pdf({ mainContent: typstContent });
 
-      // 4. Compile to PDF bytes
-      const pdfBytes = compiler.compile({
-        mainFilePath: '/main.typ',
-        outputFormat: 'pdf',
-      });
-
-      // 5. Trigger browser download
+      // 5. Download
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -295,7 +314,9 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      statusEl.innerText = "PDF generated successfully!";
+      statusEl.innerText = hasLogo
+        ? "PDF generated successfully!"
+        : "PDF generated (logo skipped: image.png not found).";
     } catch (err) {
       console.error(err);
       statusEl.innerText = "Error compiling PDF. Check console.";
