@@ -181,6 +181,17 @@
         getModule: () =>
           'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm',
       });
+      const FONT_FILES = ['MAIAN.TTF'];
+      const Snippet = window.TypstSnippet || typst.constructor;
+      for (const file of FONT_FILES) {
+        try {
+          const res = await fetch(file);
+          if (!res.ok) throw new Error(file + ' not found');
+          typst.use(Snippet.preloadFontData(new Uint8Array(await res.arrayBuffer())));
+        } catch (e) {
+          console.warn('Font skipped:', e);
+        }
+      }
 
       // Warm-up compile: downloads the WASM compiler and fonts once, so the first real click is fast
       statusEl.innerText = "Warming up compiler (first load can take a few seconds)...";
