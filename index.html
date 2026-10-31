@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KYAU Cover Page Generator</title>
 
-  <!-- Typst all-in-one bundle: exposes the global $typst and loads the WASM compiler + renderer itself -->
+  <!-- Typst all-in-one (lite) bundle: exposes the global $typst. WASM modules are pointed to the CDN in initCompiler() -->
   <script type="module" id="typst"
-    src="https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-all-in-one.ts@0.5.4/dist/esm/main.bundle.js"></script>
+    src="https://cdn.jsdelivr.net/npm/@myriaddreamin/typst.ts/dist/esm/contrib/all-in-one-lite.bundle.js"></script>
 
   <style>
     body {
@@ -171,6 +171,16 @@
     try {
       statusEl.innerText = "Loading Typst engine...";
       typst = await waitForTypst();
+
+      // The lite bundle doesn't include the WASM modules, so tell it where to fetch them
+      typst.setCompilerInitOptions({
+        getModule: () =>
+          'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm',
+      });
+      typst.setRendererInitOptions({
+        getModule: () =>
+          'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer/pkg/typst_ts_renderer_bg.wasm',
+      });
 
       // Warm-up compile: downloads the WASM compiler and fonts once, so the first real click is fast
       statusEl.innerText = "Warming up compiler (first load can take a few seconds)...";
