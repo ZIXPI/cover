@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYAU Cover Page Generator</title>
+  <!-- Load Typst Web Compiler from CDN -->
+  <script type="module">
+    import { createTypstCompiler } from 'https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-web-compiler/dist/esm/index.js';
+    window.createTypstCompiler = createTypstCompiler;
+  </script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      background: #fff;
+      max-width: 600px;
+      width: 100%;
+      padding: 25px 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    h2 {
+      margin-top: 0;
+      color: #7a2e38;
+      text-align: center;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 12px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #333;
+    }
+    input, select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .section-title {
+      font-weight: bold;
+      color: #7a2e38;
+      margin: 18px 0 10px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #8a3340;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+    button:hover {
+      background: #6e2631;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    #status {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 14px;
+      color: #555;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>KYAU Cover Page Generator</h2>
+
+  <div class="form-group">
+    <label>Cover Heading</label>
+    <input type="text" id="assignmentNo" value="Assignment-02">
+  </div>
+
+  <div class="form-group">
+    <label>Course Code</label>
+    <input type="text" id="courseCode" value="CSE 0611-1102">
+  </div>
+
+  <div class="form-group">
+    <label>Course Title</label>
+    <input type="text" id="courseTitle" value="Computer Applications Lab">
+  </div>
+
+  <div class="form-group">
+    <label>Label Type</label>
+    <select id="labelTitle">
+      <option value="Name of the Assignment">Name of the Assignment</option>
+      <option value="Name of the Topic">Name of the Topic</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>Assignment / Topic Name</label>
+    <input type="text" id="topicName" value="Python List Methods: append,insert,remove,pop,sort,reverse">
+  </div>
+
+  <div class="form-group">
+    <label>Date of Submission (DD/MM/YYYY)</label>
+    <input type="text" id="submissionDate" value="27/10/2026">
+  </div>
+
+  <div class="section-title">Submitted By</div>
+  <div class="form-group">
+    <label>Student Name</label>
+    <input type="text" id="studentName" value="Mir Shafayet Amin Aumio">
+  </div>
+  <div class="form-group">
+    <label>ID Number</label>
+    <input type="text" id="studentId" value="06226205101059">
+  </div>
+
+  <div class="section-title">Submitted To</div>
+  <div class="form-group">
+    <label>Instructor Name</label>
+    <input type="text" id="teacherName" value="Mst. Anika Amzad">
+  </div>
+  <div class="form-group">
+    <label>Instructor Designation</label>
+    <input type="text" id="teacherDesig" value="Lecturer">
+  </div>
+
+  <div class="form-group">
+    <label>Output PDF Filename</label>
+    <input type="text" id="pdfName" value="Cover_Page.pdf">
+  </div>
+
+  <button id="generateBtn">Generate & Download PDF</button>
+  <div id="status">Initializing compiler...</div>
+</div>
+
+<script>
+  let compiler = null;
+
+  async function initCompiler() {
+    try {
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = "Loading Typst engine...";
+      compiler = await window.createTypstCompiler();
+      await compiler.init();
+      statusEl.innerText = "Ready to generate!";
+    } catch (err) {
+      console.error(err);
+      document.getElementById('status').innerText = "Failed to load compiler engine.";
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', initCompiler);
+
+  document.getElementById('generateBtn').addEventListener('click', async () => {
+    if (!compiler) {
+      alert("Compiler is still loading, please wait a moment.");
+      return;
+    }
+
+    const btn = document.getElementById('generateBtn');
+    const statusEl = document.getElementById('status');
+    btn.disabled = true;
+    statusEl.innerText = "Fetching logo and compiling PDF...";
+
+    try {
+      // 1. Fetch image.png and add it to the compiler virtual workspace
+      const imgRes = await fetch('image.png');
+      const imgBlob = await imgRes.blob();
+      const imgBuffer = new Uint8Array(await imgBlob.arrayBuffer());
+      compiler.addSource('/image.png', imgBuffer);
+
+      // 2. Read form values
+      const assignmentNo = document.getElementById('assignmentNo').value;
+      const courseCode = document.getElementById('courseCode').value;
+      const courseTitle = document.getElementById('courseTitle').value;
+      const labelTitle = document.getElementById('labelTitle').value;
+      const topicName = document.getElementById('topicName').value;
+      const submissionDate = document.getElementById('submissionDate').value;
+      const studentName = document.getElementById('studentName').value;
+      const studentId = document.getElementById('studentId').value;
+      const teacherName = document.getElementById('teacherName').value;
+      const teacherDesig = document.getElementById('teacherDesig').value;
+      let pdfName = document.getElementById('pdfName').value;
+      if (!pdfName.endsWith('.pdf')) pdfName += '.pdf';
+
+      // 3. Construct Typst source content
+      const typstContent = `
+#set page(paper:"a4")
+#align(center)[
+  #image("image.png", width: 4cm)
+]
+
+#align(center)[
+  #set text(font: "Maiandra GD")
+  == #text(size: 30pt, weight: "bold")[Khwaja Yunus Ali University]
+  #v(0.2cm)
+  #line(length: 100%)
+
+= ${assignmentNo}
+]
+#v(2cm)
+
+#set text(size: 12pt)
+#align(left)[
+#grid(
+  columns: (auto, auto, 1fr),
+  row-gutter: 1.65em,
+  column-gutter: 1em,
+
+  strong([Name of the Department]), [:], [Computer Science and Engineering],
+  strong([Course Code]),            [:], [${courseCode}],
+  strong([Course Title]),           [:], [${courseTitle}],
+  strong([${labelTitle}]),          [:], strong([${topicName}]),
+  strong([Date of Submission]),     [:], [${submissionDate}],
+)
+]
+#v(4.5cm)
+#align(center)[
+  #line(length: 50%)
+*Instructor signature and date *
+]
+
+#let header-brown = rgb("A45")
+
+#table(
+  columns: (1fr, 1fr),
+  inset: (x: 15pt, y: 12pt),
+  fill: (col, row) => if row == 0 { header-brown } else { none },
+
+  stroke: (x, y) => if y == 0 {
+    (top: .1pt + gray, left: 0pt + gray, right: 1pt + gray, bottom: none)
+  } else {
+    (
+      bottom: 1pt + gray,
+      left: 1pt + gray,
+      right: if x == 0 { 0.5pt + gray } else { 1pt + gray }
+    )
+  },
+
+  [#text(fill: white, weight: "bold")[Submitted by --]],
+  [#text(fill: white, weight: "bold")[Submitted to --]],
+
+  [
+    *Name : ${studentName}* \\
+    ID Number: ${studentId} \\
+    Batch No: 22#super[nd] \\
+    Semester: 1#super[st] Year 1#super[st] Semester \\
+    Khwaja Yunus Ali University
+  ],
+  [
+    *Name: ${teacherName}* \\
+    ${teacherDesig} \\
+    Dept. of CSE \\
+    Khwaja Yunus Ali University
+  ]
+)
+`;
+
+      compiler.addSource('/main.typ', typstContent);
+
+      // 4. Compile to PDF bytes
+      const pdfBytes = compiler.compile({
+        mainFilePath: '/main.typ',
+        outputFormat: 'pdf',
+      });
+
+      // 5. Trigger browser download
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = pdfName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      statusEl.innerText = "PDF generated successfully!";
+    } catch (err) {
+      console.error(err);
+      statusEl.innerText = "Error compiling PDF. Check console.";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
