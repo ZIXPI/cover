@@ -206,8 +206,10 @@
 
     btn.disabled = true;
     statusEl.innerText = "Fetching logo and compiling PDF...";
+    let stage = 'start';
 
     try {
+      stage = 'loading image.png';
       // 1. Load logo into Typst's virtual file system (needs a local web server, not file://)
       let hasLogo = false;
       try {
@@ -237,7 +239,7 @@
 
       // 3. Typst source
       const logo = hasLogo
-        ? `#align(center)[#image("image.png", width: 4cm)]`
+        ? `#align(center)[#image("/image.png", width: 4cm)]`
         : '';
 
       const typstContent = `
@@ -310,8 +312,11 @@ ${logo}
 )
 `;
 
+      stage = 'compiling (downloads fonts on first use)';
       // 4. Compile straight to PDF bytes
-      const pdfBytes = await typst.pdf({ mainContent: typstContent });
+      // Put main.typ in the same virtual project root as image.png (mainContent uses a temp path outside it)
+      await typst.addSource('/main.typ', typstContent);
+      const pdfBytes = await typst.pdf({ mainFilePath: '/main.typ' });
 
       // 5. Download
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -329,7 +334,7 @@ ${logo}
         : "PDF generated (logo skipped: image.png not found).";
     } catch (err) {
       console.error(err);
-      statusEl.innerText = "Error compiling PDF. Check console.";
+      statusEl.innerText = "Error while " + stage + ": " + (err && err.message ? err.message : err);
     } finally {
       btn.disabled = false;
     }
